@@ -26,6 +26,7 @@ const ko = {
   'action.retry': '다시 시도',
   'cities.title': '지역',
   'cities.search': '도시 검색',
+  'aria.tempChart': '오늘 최고 {max}° {maxH}시, 최저 {min}° {minH}시',
 } as const;
 
 export type StringKey = keyof typeof ko;
@@ -56,6 +57,7 @@ const en: Record<StringKey, string> = {
   'action.retry': 'Retry',
   'cities.title': 'Places',
   'cities.search': 'Search city',
+  'aria.tempChart': 'Today high {max}° at {maxH}:00, low {min}° at {minH}:00',
 };
 
 const dict: Record<Lang, Record<StringKey, string>> = { ko, en };
