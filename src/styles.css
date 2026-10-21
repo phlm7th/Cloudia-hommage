@@ -236,3 +236,85 @@ button.retry {
 @media (prefers-reduced-motion: reduce) {
   .cursor { transition: none; }
 }
+
+/* Places (F7) */
+.cities-layer {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  background: rgba(11, 26, 51, 0.92);
+  padding: calc(env(safe-area-inset-top) + 8px) 16px env(safe-area-inset-bottom);
+}
+.cities header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cities h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 400;
+}
+.cities button {
+  font: inherit;
+  color: #fff;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.cities .back {
+  font-size: 30px;
+  line-height: 1;
+  padding: 0 8px 4px 0;
+}
+.cities input {
+  width: 100%;
+  margin: 16px 0 8px;
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 16px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  outline: none;
+}
+.cities input::placeholder { color: rgba(255, 255, 255, 0.55); }
+.cities input:focus { border-color: rgba(255, 255, 255, 0.6); }
+.cities ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.cities .results li button {
+  width: 100%;
+  text-align: left;
+  padding: 10px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.cities .saved { margin-top: 16px; }
+.cities .place {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.cities .pick {
+  flex: 1;
+  text-align: left;
+  font-size: 18px;
+  padding: 14px 4px;
+}
+.cities small {
+  margin-left: 8px;
+  font-size: 13px;
+  opacity: 0.6;
+}
+.cities .up, .cities .down, .cities .remove {
+  width: 36px;
+  height: 36px;
+  opacity: 0.75;
+}
+.cities .current .pick::before {
+  content: '⌖ ';
+  opacity: 0.7;
+}

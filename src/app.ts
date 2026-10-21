@@ -1,10 +1,13 @@
+import { searchPlaces } from './data/geocoding';
 import { fetchWeather, localNow } from './data/openMeteo';
 import type { Place, WeatherData } from './data/types';
 import { compareSentence } from './domain/daySummary';
+import { loadPlaces, savePlaces } from './domain/places';
 import { toHourFraction } from './domain/sceneMath';
 import { conditionOf, precipKindOf } from './domain/weatherCode';
 import { detectLang, t, type Lang } from './i18n';
 import { createScene, type SceneState } from './scene/scene';
+import { renderCitiesView } from './ui/citiesView';
 import { attachSwipe } from './ui/swipe';
 import { renderTempChart } from './ui/tempChart';
 import { renderTimeline } from './ui/timelineBar';
@@ -21,6 +24,7 @@ const GEO_TIMEOUT_MS = 8000;
 const RESET_AFTER_MS = 10 * 60_000;
 const MAX_CONTENT_WIDTH = 480;
 const SIDE_PADDING = 32;
+const CITIES_HASH = '#/cities';
 
 export function defaultPlace(lang: Lang): Place {
   return { id: 'default-seoul', name: lang === 'ko' ? '서울' : 'Seoul', lat: 37.5665, lon: 126.978 };
@@ -73,7 +77,8 @@ export async function startApp(root: HTMLElement, deps: AppDeps = {}): Promise<v
   const screen = div('screen');
   const view = div('main-view');
   const topbar = div('topbar');
-  const placeName = document.createElement('span');
+  const placeName = document.createElement('button');
+  placeName.type = 'button';
   placeName.className = 'place-name';
   topbar.append(placeName);
   const stale = div('stale');
@@ -84,12 +89,18 @@ export async function startApp(root: HTMLElement, deps: AppDeps = {}): Promise<v
   credit.className = 'credit';
   credit.innerHTML = '<a href="https://open-meteo.com/" target="_blank" rel="noopener">Weather data by Open-Meteo.com</a>';
   screen.append(view, weekly, credit);
-  root.append(canvas, screen);
+  const citiesLayer = div('cities-layer');
+  citiesLayer.hidden = true;
+  root.append(canvas, screen, citiesLayer);
 
   const scene = createScene(canvas);
-  let place: Place = defaultPlace(lang);
+  let here: Place = defaultPlace(lang);
+  let place: Place = here;
   let wx: WeatherData | null = null;
+  let hereWx: WeatherData | null = null;
+  let places = loadPlaces();
   let selectedHour = 0;
+  const isHere = () => place.id === here.id;
 
   const contentWidth = () => Math.min(screen.clientWidth || 360, MAX_CONTENT_WIDTH) - SIDE_PADDING;
 
@@ -104,7 +115,11 @@ export async function startApp(root: HTMLElement, deps: AppDeps = {}): Promise<v
     const point = wx.today.find((p) => p.hour === selectedHour);
     const ref = wx.yesterday.find((p) => p.hour === selectedHour);
     const cond = conditionOf(point?.code ?? null);
-    const compare = compareSentence(lang, point?.temp ?? null, ref?.temp ?? null, 'yesterday');
+    const herePoint = hereWx?.today.find((p) => p.hour === selectedHour);
+    const compare =
+      !isHere() && hereWx
+        ? compareSentence(lang, point?.temp ?? null, herePoint?.temp ?? null, 'here')
+        : compareSentence(lang, point?.temp ?? null, ref?.temp ?? null, 'yesterday');
 
     const condition = document.createElement('h1');
     condition.className = 'condition';
@@ -161,19 +176,58 @@ export async function startApp(root: HTMLElement, deps: AppDeps = {}): Promise<v
       stale.textContent = t(lang, 'label.updated', { time: hhmm(at.hour, at.minute) });
     }
     const width = contentWidth();
-    weekly.replaceChildren(renderWeeklyChart(weeklyColumns(lang, wx.days), width, Math.round(width * 0.6)));
+    const hereToday = !isHere() && hereWx ? hereWx.days[1] : undefined;
+    weekly.replaceChildren(renderWeeklyChart(weeklyColumns(lang, wx.days, hereToday), width, Math.round(width * 0.6)));
     renderHour();
   };
 
   const load = async () => {
+    const opts = { fetch: deps.fetch, now };
     try {
-      wx = await fetchWeather(place, { fetch: deps.fetch, now });
+      wx = await fetchWeather(place, opts);
       selectedHour = nowHourOf(wx) ?? 12;
     } catch {
       wx = null;
     }
+    hereWx = isHere() ? wx : await fetchWeather(here, opts).catch(() => null);
     render();
   };
+
+  const showCities = (open: boolean) => {
+    citiesLayer.hidden = !open;
+    screen.hidden = open;
+    if (!open) {
+      citiesLayer.replaceChildren();
+      return;
+    }
+    citiesLayer.replaceChildren(
+      renderCitiesView({
+        lang,
+        current: here,
+        places,
+        search: (q, l) => searchPlaces(q, l, { fetch: deps.fetch }),
+        onChange: (list) => {
+          places = list;
+          savePlaces(list);
+        },
+        onBack: () => setRoute(false),
+        onSelect: (p) => {
+          place = p;
+          setRoute(false);
+          void load();
+        },
+      }),
+    );
+  };
+
+  const setRoute = (cities: boolean) => {
+    showCities(cities);
+    const hash = cities ? CITIES_HASH : '#/';
+    if (location.hash !== hash) history.replaceState(null, '', hash);
+  };
+
+  placeName.addEventListener('click', () => setRoute(true));
+  window.addEventListener('hashchange', () => showCities(location.hash === CITIES_HASH));
 
   attachSwipe(
     screen,
@@ -190,6 +244,7 @@ export async function startApp(root: HTMLElement, deps: AppDeps = {}): Promise<v
     else if (hiddenAt && now() - hiddenAt > RESET_AFTER_MS) void load();
   });
 
-  place = await locate(geo, lang);
+  here = await locate(geo, lang);
+  place = here;
   await load();
 }

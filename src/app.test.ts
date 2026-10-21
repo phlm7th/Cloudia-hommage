@@ -61,3 +61,19 @@ describe('startApp', () => {
     expect(root.querySelector('.stale')!.textContent).toBe('마지막 갱신 09:00');
   });
 });
+
+describe('places', () => {
+  it('opens the place list and compares another city with here', async () => {
+    localStorage.setItem('cloudia.places.v1', JSON.stringify([{ id: 'geo-1', name: '도쿄', lat: 35.69, lon: 139.69 }]));
+    const f = fakeFetch();
+    await startApp(root, { fetch: f, geolocation: deniedGeo, lang: 'ko', now: () => FIXED_NOW });
+    root.querySelector<HTMLButtonElement>('button.place-name')!.click();
+    expect(root.querySelector('.cities')).not.toBeNull();
+
+    root.querySelectorAll<HTMLButtonElement>('.saved .pick')[1].click();
+    await vi.waitFor(() => expect(root.querySelector('button.place-name')!.textContent).toBe('도쿄'));
+    expect(f).toHaveBeenCalledWith(expect.stringContaining('latitude=35.69'));
+    expect(root.querySelector('.weekly-chart .day')!.textContent).toBe('여기');
+    expect(root.querySelector('p.compare')!.textContent).toBe('여기와 비슷해요');
+  });
+});
