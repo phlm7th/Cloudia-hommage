@@ -3,6 +3,7 @@ import { readJson, writeJson } from './storage';
 
 const ENDPOINT = 'https://api.open-meteo.com/v1/forecast';
 const CACHE_TTL_MS = 30 * 60_000;
+const REQUEST_TIMEOUT_MS = 10_000;
 
 export class WeatherUnavailableError extends Error {
   constructor(cause?: unknown) {
@@ -112,8 +113,17 @@ export async function fetchWeather(
     cached.days[1]?.date === localNow(cached.utcOffsetSeconds, now()).date;
   if (fresh) return { ...cached, stale: false };
 
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error('timeout'));
+    }, REQUEST_TIMEOUT_MS);
+  });
   try {
-    const res = await doFetch(buildForecastUrl(place.lat, place.lon));
+    // A request that neither answers nor fails (weak signal, captive portal) must not hide usable cache.
+    const res = await Promise.race([doFetch(buildForecastUrl(place.lat, place.lon), { signal: controller.signal }), timeout]);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = parseForecast(await res.json(), now());
     writeJson(key, data);
@@ -121,5 +131,7 @@ export async function fetchWeather(
   } catch (err) {
     if (cached) return { ...cached, stale: true };
     throw new WeatherUnavailableError(err);
+  } finally {
+    clearTimeout(timer);
   }
 }

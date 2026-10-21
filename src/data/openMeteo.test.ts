@@ -96,6 +96,20 @@ describe('fetchWeather', () => {
     expect(wx.fetchedAt).toBe(T0);
   });
 
+  it('gives up on a hanging request after 10s and serves the stale cache', async () => {
+    await fetchWeather(SEOUL, { fetch: okFetch(), now: () => T0 });
+    vi.useFakeTimers();
+    try {
+      const hanging = vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch;
+      const pending = fetchWeather(SEOUL, { fetch: hanging, now: () => T0 + 2 * 3600_000 });
+      await vi.advanceTimersByTimeAsync(10_000);
+      const wx = await pending;
+      expect(wx.stale).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('treats an HTTP error like a network failure', async () => {
     const bad = vi.fn(async () => new Response('{"error":true}', { status: 500 })) as unknown as typeof fetch;
     await expect(fetchWeather(SEOUL, { fetch: bad, now: () => T0 })).rejects.toBeInstanceOf(WeatherUnavailableError);
