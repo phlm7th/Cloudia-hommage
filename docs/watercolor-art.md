@@ -86,6 +86,5 @@ npm run dev
 ## 무료로 그리는 도구
 
 - 지금 들어 있는 그림은 저장소 루트에서 `python scripts/generate_watercolor_art.py`로 다시 만들 수 있습니다 (Pillow 필요: `pip install pillow`, 실행하면 기존 그림을 덮어씀).
-
 - [Krita](https://krita.org/) (무료): 수채화 브러시 기본 제공, 레이어별 PNG 내보내기 가능
 - 종이 질감은 실제 수채화 종이를 스캔하거나 촬영해서 만들어도 됩니다.
