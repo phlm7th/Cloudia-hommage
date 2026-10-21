@@ -1,4 +1,5 @@
 import { cloudCount, particleCount, skyColors, skyPhase, sunPosition, type SkyPhase } from '../domain/sceneMath';
+import { EMPTY_ART, layerRect, pickCloudSprite, type ArtSet, type Sprite } from './artAssets';
 
 export interface SceneState {
   hour: number;
@@ -18,10 +19,21 @@ interface Drop { x: number; y: number; v: number; phase: number }
 const HORIZON = 0.72;
 const MAX_DPR = 2;
 
+export interface Scene {
+  update(s: SceneState): void;
+  /** Painted artwork replaces the procedural drawing piece by piece (whatever files exist). */
+  setArt(art: ArtSet): void;
+  destroy(): void;
+}
+
+/** Sun/moon artwork paints the body at ~60% of the square, leaving room for the glow. */
+const CELESTIAL_BODY_RATIO = 0.6;
+const PAPER_ALPHA = 0.28;
+
 /** PRD F1: canvas scene driven by real weather values. */
-export function createScene(canvas: HTMLCanvasElement): { update(s: SceneState): void; destroy(): void } {
+export function createScene(canvas: HTMLCanvasElement): Scene {
   const ctx = canvas.getContext('2d');
-  if (!ctx) return { update() {}, destroy() {} };
+  if (!ctx) return { update() {}, setArt() {}, destroy() {} };
 
   const reduceMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   let state: SceneState | null = null;
@@ -33,6 +45,35 @@ export function createScene(canvas: HTMLCanvasElement): { update(s: SceneState):
   let last = 0;
   let nextFlash = 0;
   let flashUntil = 0;
+  let art: ArtSet = EMPTY_ART;
+  let paperPattern: CanvasPattern | null = null;
+  let landscapeCache: { key: string; canvas: HTMLCanvasElement } | null = null;
+
+  /** Landscape layers composed once per size/phase; the night/dusk tint only touches painted pixels. */
+  const paintedLandscape = (phase: SkyPhase): HTMLCanvasElement | null => {
+    if (!art.landscape.length) return null;
+    const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+    const key = `${w}x${h}@${dpr}:${phase}`;
+    if (landscapeCache?.key === key) return landscapeCache.canvas;
+    const off = document.createElement('canvas');
+    off.width = Math.round(w * dpr);
+    off.height = Math.round(h * dpr);
+    const o = off.getContext('2d');
+    if (!o) return null;
+    o.scale(dpr, dpr);
+    for (const layer of art.landscape) {
+      const r = layerRect(layer, w, h);
+      o.drawImage(layer.img, r.x, r.y, r.w, r.h);
+    }
+    const tint = NIGHT_TINT[phase];
+    if (tint > 0) {
+      o.globalCompositeOperation = 'source-atop';
+      o.fillStyle = `rgba(11,26,51,${tint})`;
+      o.fillRect(0, 0, w, h);
+    }
+    landscapeCache = { key, canvas: off };
+    return off;
+  };
 
   const syncObjects = (force = false) => {
     if (!state) return;
@@ -105,18 +146,40 @@ export function createScene(canvas: HTMLCanvasElement): { update(s: SceneState):
     ctx.fillRect(0, 0, w, h);
 
     if (phase === 'night') {
-      drawMoon(ctx, w * 0.78, h * 0.3, Math.min(w, h) * 0.06, state.moonPhase ?? 0.5);
+      const r = Math.min(w, h) * 0.06;
+      if (art.moon) drawCelestialSprite(ctx, art.moon, w * 0.78, h * 0.3, r);
+      drawMoonShadow(ctx, w * 0.78, h * 0.3, r, state.moonPhase ?? 0.5, !art.moon);
     } else {
       const sun = sunPosition(state.hour, state.sunrise, state.sunset);
       if (sun.up) {
-        drawSun(ctx, w * (0.1 + 0.8 * sun.t), h * HORIZON - Math.sin(Math.PI * sun.t) * h * 0.4, Math.min(w, h) * 0.09);
+        const x = w * (0.1 + 0.8 * sun.t);
+        const y = h * HORIZON - Math.sin(Math.PI * sun.t) * h * 0.4;
+        const r = Math.min(w, h) * 0.09;
+        if (art.sun) drawCelestialSprite(ctx, art.sun, x, y, r);
+        else drawSun(ctx, x, y, r);
       }
     }
 
-    const cloudColor = state.precip !== 'none' ? 'rgba(220,228,238,0.92)' : 'rgba(255,255,255,0.85)';
-    for (const c of clouds) drawCloud(ctx, c.x, c.y, c.s * Math.min(w, 480) * 0.22, cloudColor);
+    const stormy = state.precip !== 'none';
+    const cloudColor = stormy ? 'rgba(220,228,238,0.92)' : 'rgba(255,255,255,0.85)';
+    const shade = phase === 'night' ? 'brightness(0.55)' : stormy || state.cloud >= 80 ? 'brightness(0.82)' : 'none';
+    clouds.forEach((c, i) => {
+      const sprite = pickCloudSprite(art, i, stormy);
+      if (!sprite) {
+        drawCloud(ctx, c.x, c.y, c.s * Math.min(w, 480) * 0.22, cloudColor);
+        return;
+      }
+      const cw = c.s * Math.min(w, 480) * (stormy ? 0.8 : 0.5);
+      const ch = (cw * sprite.height) / sprite.width;
+      ctx.save();
+      ctx.filter = shade;
+      ctx.drawImage(sprite.img, c.x - cw * 0.2, c.y - ch * 0.5, cw, ch);
+      ctx.restore();
+    });
 
-    drawLandscape(ctx, w, h, phase);
+    const painted = paintedLandscape(phase);
+    if (painted) ctx.drawImage(painted, 0, 0, w, h);
+    else drawLandscape(ctx, w, h, phase);
 
     if (state.precip === 'rain') {
       ctx.strokeStyle = 'rgba(200,225,255,0.55)';
@@ -133,6 +196,18 @@ export function createScene(canvas: HTMLCanvasElement): { update(s: SceneState):
         ctx.beginPath();
         ctx.arc(d.x, d.y, 1.5 + d.v * 1.5, 0, Math.PI * 2);
         ctx.fill();
+      }
+    }
+
+    if (art.paper) {
+      paperPattern ??= ctx.createPattern(art.paper.img, 'repeat');
+      if (paperPattern) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.globalAlpha = PAPER_ALPHA;
+        ctx.fillStyle = paperPattern;
+        ctx.fillRect(0, 0, w, h);
+        ctx.restore();
       }
     }
 
@@ -174,6 +249,12 @@ export function createScene(canvas: HTMLCanvasElement): { update(s: SceneState):
       if (!raf) draw(performance.now());
       start();
     },
+    setArt(next) {
+      art = next;
+      paperPattern = null;
+      landscapeCache = null;
+      if (!raf) draw(performance.now());
+    },
     destroy() {
       stop();
       ro?.disconnect();
@@ -200,16 +281,23 @@ function drawSun(ctx: CanvasRenderingContext2D, x: number, y: number, r: number)
   ctx.fill();
 }
 
-/** phase: 0 = new, 0.5 = full (Open-Meteo moon_phase). */
-function drawMoon(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, phase: number) {
+function drawCelestialSprite(ctx: CanvasRenderingContext2D, s: Sprite, x: number, y: number, r: number) {
+  const size = (r * 2) / CELESTIAL_BODY_RATIO;
+  ctx.drawImage(s.img, x - size / 2, y - size / 2, size, size);
+}
+
+/** phase: 0 = new, 0.5 = full (Open-Meteo moon_phase). Paints the disc too when there is no moon artwork. */
+function drawMoonShadow(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, phase: number, paintDisc: boolean) {
   const lit = phase <= 0.5 ? phase * 2 : (1 - phase) * 2;
   const shift = (phase < 0.5 ? -1 : 1) * lit * r * 2;
   ctx.save();
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.clip();
-  ctx.fillStyle = '#fff3c4';
-  ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  if (paintDisc) {
+    ctx.fillStyle = '#fff3c4';
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  }
   ctx.fillStyle = 'rgba(15,30,58,0.88)';
   ctx.beginPath();
   ctx.arc(x + shift, y, r, 0, Math.PI * 2);

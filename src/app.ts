@@ -6,6 +6,7 @@ import { loadPlaces, savePlaces } from './domain/places';
 import { toHourFraction } from './domain/sceneMath';
 import { conditionOf, precipKindOf } from './domain/weatherCode';
 import { detectLang, t, type Lang } from './i18n';
+import { loadArt } from './scene/artAssets';
 import { createScene, type SceneState } from './scene/scene';
 import { renderCitiesView } from './ui/citiesView';
 import { attachSwipe } from './ui/swipe';
@@ -109,6 +110,7 @@ export async function startApp(root: HTMLElement, deps: AppDeps = {}): Promise<v
   root.append(canvas, screen, citiesLayer, credit);
 
   const scene = createScene(canvas);
+  void loadArt(import.meta.env.BASE_URL).then((art) => scene.setArt(art));
   let here: Place = defaultPlace(lang);
   let place: Place = here;
   let wx: WeatherData | null = null;
