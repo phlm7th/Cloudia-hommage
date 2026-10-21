@@ -5,6 +5,31 @@ export function toHourFraction(iso: string | null): number | null {
   return m ? Number(m[1]) + Number(m[2]) / 60 : null;
 }
 
+/** Horizon as a fraction of screen height. */
+export const HORIZON = 0.72;
+const MIN_ARC_PX = 40;
+
+/**
+ * Sun along its arc: t = 0 at sunrise (left horizon) → 1 at sunset (right horizon).
+ * `peakY` is the highest point (px), chosen by the caller to stay clear of the overlay text.
+ */
+export function sunPoint(t: number, w: number, h: number, peakY: number): { x: number; y: number } {
+  const horizonY = h * HORIZON;
+  const top = Math.min(peakY, horizonY - MIN_ARC_PX);
+  return { x: w * (0.1 + 0.8 * t), y: horizonY - Math.sin(Math.PI * t) * (horizonY - top) };
+}
+
+/** The moon sits on the right, beside the condition text (as in the original app). */
+export function moonPoint(w: number, y: number): { x: number; y: number } {
+  return { x: w * 0.78, y };
+}
+
+/** No sun or moon while it rains or snows; a faint one behind heavy overcast. */
+export function celestialOpacity(cloudPercent: number, precip: 'none' | 'rain' | 'snow'): number {
+  if (precip !== 'none') return 0;
+  return cloudPercent >= 80 ? 0.35 : 1;
+}
+
 const DEFAULT_SUNRISE = 6;
 const DEFAULT_SUNSET = 18;
 const TWILIGHT_H = 0.75;

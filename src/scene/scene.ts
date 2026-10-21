@@ -1,4 +1,15 @@
-import { cloudCount, particleCount, skyColors, skyPhase, sunPosition, type SkyPhase } from '../domain/sceneMath';
+import {
+  HORIZON,
+  celestialOpacity,
+  cloudCount,
+  moonPoint,
+  particleCount,
+  skyColors,
+  skyPhase,
+  sunPoint,
+  sunPosition,
+  type SkyPhase,
+} from '../domain/sceneMath';
 import { EMPTY_ART, layerRect, pickCloudSprite, type ArtSet, type Sprite } from './artAssets';
 
 export interface SceneState {
@@ -16,11 +27,17 @@ export interface SceneState {
 interface Cloud { x: number; y: number; s: number }
 interface Drop { x: number; y: number; v: number; phase: number }
 
-const HORIZON = 0.72;
 const MAX_DPR = 2;
+
+/** Where the overlay text sits (canvas px), so the sun and moon avoid it. */
+export interface SceneLayout {
+  textTop: number;
+  textBottom: number;
+}
 
 export interface Scene {
   update(s: SceneState): void;
+  setLayout(layout: SceneLayout): void;
   /** Painted artwork replaces the procedural drawing piece by piece (whatever files exist). */
   setArt(art: ArtSet): void;
   destroy(): void;
@@ -33,7 +50,7 @@ const PAPER_ALPHA = 0.28;
 /** PRD F1: canvas scene driven by real weather values. */
 export function createScene(canvas: HTMLCanvasElement): Scene {
   const ctx = canvas.getContext('2d');
-  if (!ctx) return { update() {}, setArt() {}, destroy() {} };
+  if (!ctx) return { update() {}, setLayout() {}, setArt() {}, destroy() {} };
 
   const reduceMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   let state: SceneState | null = null;
@@ -46,6 +63,7 @@ export function createScene(canvas: HTMLCanvasElement): Scene {
   let nextFlash = 0;
   let flashUntil = 0;
   let art: ArtSet = EMPTY_ART;
+  let layout: SceneLayout | null = null;
   let paperPattern: CanvasPattern | null = null;
   let landscapeCache: { key: string; canvas: HTMLCanvasElement } | null = null;
 
@@ -145,20 +163,26 @@ export function createScene(canvas: HTMLCanvasElement): Scene {
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, w, h);
 
-    if (phase === 'night') {
+    const celestialAlpha = celestialOpacity(state.cloud, state.precip);
+    ctx.save();
+    ctx.globalAlpha = celestialAlpha;
+    if (celestialAlpha === 0) {
+      // hidden by rain or snow
+    } else if (phase === 'night') {
       const r = Math.min(w, h) * 0.06;
-      if (art.moon) drawCelestialSprite(ctx, art.moon, w * 0.78, h * 0.3, r);
-      drawMoonShadow(ctx, w * 0.78, h * 0.3, r, state.moonPhase ?? 0.5, !art.moon);
+      const m = moonPoint(w, layout ? (layout.textTop + layout.textBottom) / 2 : h * 0.42);
+      if (art.moon) drawCelestialSprite(ctx, art.moon, m.x, m.y, r);
+      drawMoonShadow(ctx, m.x, m.y, r, state.moonPhase ?? 0.5, !art.moon);
     } else {
       const sun = sunPosition(state.hour, state.sunrise, state.sunset);
       if (sun.up) {
-        const x = w * (0.1 + 0.8 * sun.t);
-        const y = h * HORIZON - Math.sin(Math.PI * sun.t) * h * 0.4;
         const r = Math.min(w, h) * 0.09;
+        const { x, y } = sunPoint(sun.t, w, h, layout ? layout.textBottom + r * 1.4 : h * 0.5);
         if (art.sun) drawCelestialSprite(ctx, art.sun, x, y, r);
         else drawSun(ctx, x, y, r);
       }
     }
+    ctx.restore();
 
     const stormy = state.precip !== 'none';
     const cloudColor = stormy ? 'rgba(220,228,238,0.92)' : 'rgba(255,255,255,0.85)';
@@ -248,6 +272,10 @@ export function createScene(canvas: HTMLCanvasElement): Scene {
       else syncObjects();
       if (!raf) draw(performance.now());
       start();
+    },
+    setLayout(next) {
+      layout = next;
+      if (!raf) draw(performance.now());
     },
     setArt(next) {
       art = next;

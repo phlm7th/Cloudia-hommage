@@ -44,3 +44,39 @@ describe('counts', () => {
     expect(particleCount('snow', 100)).toBe(100);
   });
 });
+
+import { sunPoint, moonPoint } from './sceneMath';
+
+describe('celestial placement', () => {
+  // The sun travels below the condition text; the moon sits beside it on the right.
+  it('rises and sets on the horizon at 72% height', () => {
+    const rise = sunPoint(0, 400, 800, 500);
+    expect(rise.x).toBeCloseTo(40);
+    expect(rise.y).toBeCloseTo(576);
+    expect(sunPoint(1, 400, 800, 500).y).toBeCloseTo(576);
+  });
+  it('peaks at the given height at midday', () => {
+    const noon = sunPoint(0.5, 400, 800, 500);
+    expect(noon.x).toBeCloseTo(200);
+    expect(noon.y).toBeCloseTo(500);
+  });
+  it('keeps a visible arc when the text leaves almost no room above the horizon', () => {
+    expect(sunPoint(0.5, 400, 800, 590).y).toBeCloseTo(576 - 40);
+  });
+  it('places the moon on the right at the given height', () => {
+    const m = moonPoint(400, 350);
+    expect(m.x).toBeCloseTo(312);
+    expect(m.y).toBe(350);
+  });
+});
+
+import { celestialOpacity } from './sceneMath';
+
+describe('celestialOpacity', () => {
+  it('shows the sun or moon fully in fair weather', () => expect(celestialOpacity(30, 'none')).toBe(1));
+  it('fades it behind a heavy overcast', () => expect(celestialOpacity(90, 'none')).toBe(0.35));
+  it('hides it while it rains or snows', () => {
+    expect(celestialOpacity(100, 'rain')).toBe(0);
+    expect(celestialOpacity(100, 'snow')).toBe(0);
+  });
+});

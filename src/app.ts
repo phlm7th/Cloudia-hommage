@@ -170,6 +170,9 @@ export async function startApp(root: HTMLElement, deps: AppDeps = {}): Promise<v
       pop: point?.pop ?? 60,
     };
     scene.update(sceneState);
+    const top = condition.getBoundingClientRect().top - root.getBoundingClientRect().top;
+    const bottom = (compare === null ? condition : sentence).getBoundingClientRect().bottom - root.getBoundingClientRect().top;
+    if (bottom > top) scene.setLayout({ textTop: top, textBottom: bottom });
   };
 
   const render = () => {
