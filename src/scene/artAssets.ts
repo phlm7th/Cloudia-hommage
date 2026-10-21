@@ -1,5 +1,5 @@
 /**
- * Painted artwork for the scene, read from public/art/watercolor/ (see the README there).
+ * Painted artwork for the scene, read from public/art/watercolor/ (see docs/watercolor-art.md).
  * Every file is optional: a missing one leaves the procedural drawing in place.
  */
 
