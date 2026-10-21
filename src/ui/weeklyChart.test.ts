@@ -27,9 +27,9 @@ describe('weeklyColumns', () => {
     expect(weeklyColumns('ko', days).map((c) => c.label)).toEqual(['어제', '오늘', '목', '금', '토', '일']);
   });
 
-  it('uses Here as the first column for another city', () => {
-    const cols = weeklyColumns('ko', days, hereToday);
-    expect(cols[0]).toMatchObject({ label: '여기', max: 6, min: -7, muted: true });
+  it('uses the reference place as the first column for another city', () => {
+    const cols = weeklyColumns('ko', days, { day: hereToday, label: '내 위치' });
+    expect(cols[0]).toMatchObject({ label: '내 위치', max: 6, min: -7, muted: true });
     expect(cols).toHaveLength(6);
   });
 });

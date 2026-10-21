@@ -10,8 +10,9 @@ describe('i18n', () => {
   });
 
   it('fills template variables', () => {
-    expect(t('ko', 'cmp.warmer.yesterday', { d: 3 })).toBe('어제보다 3° 따뜻해요');
-    expect(t('en', 'cmp.cooler.here', { d: 5 })).toBe('5° cooler than here.');
+    expect(t('ko', 'cmp.warmer', { d: 3 })).toBe('어제보다 3° 따뜻해요');
+    expect(t('en', 'cmp.cooler', { d: 5 })).toBe('5° cooler than yesterday.');
+    expect(t('ko', 'label.myLocation')).toBe('내 위치');
   });
 
   it('returns plain strings', () => {

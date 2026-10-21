@@ -131,11 +131,7 @@ export async function startApp(root: HTMLElement, deps: AppDeps = {}): Promise<v
     const point = wx.today.find((p) => p.hour === selectedHour);
     const ref = wx.yesterday.find((p) => p.hour === selectedHour);
     const cond = conditionOf(point?.code ?? null);
-    const herePoint = hereWx?.today.find((p) => p.hour === selectedHour);
-    const compare =
-      !isHere() && hereWx
-        ? compareSentence(lang, point?.temp ?? null, herePoint?.temp ?? null, 'here')
-        : compareSentence(lang, point?.temp ?? null, ref?.temp ?? null, 'yesterday');
+    const compare = compareSentence(lang, point?.temp ?? null, ref?.temp ?? null);
 
     const condition = document.createElement('h1');
     condition.className = 'condition';
@@ -195,8 +191,11 @@ export async function startApp(root: HTMLElement, deps: AppDeps = {}): Promise<v
       stale.textContent = t(lang, 'label.updated', { time: sameDay ? time : `${mm}/${dd} ${time}` });
     }
     const width = contentWidth();
-    const hereToday = !isHere() && hereWx ? hereWx.days[1] : undefined;
-    weekly.replaceChildren(renderWeeklyChart(weeklyColumns(lang, wx.days, hereToday), width, Math.round(width * 0.6)));
+    const reference =
+      !isHere() && hereWx
+        ? { day: hereWx.days[1], label: here.isCurrent ? t(lang, 'label.myLocation') : here.name }
+        : undefined;
+    weekly.replaceChildren(renderWeeklyChart(weeklyColumns(lang, wx.days, reference), width, Math.round(width * 0.6)));
     renderHour();
   };
 

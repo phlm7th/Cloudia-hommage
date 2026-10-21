@@ -46,16 +46,16 @@ describe('extremes', () => {
 
 describe('compareSentence', () => {
   it.each([
-    [20, 19.4, 'yesterday', '어제와 비슷해요'],
-    [21, 20, 'yesterday', '어제와 비슷해요'],
-    [23, 20, 'yesterday', '어제보다 3° 따뜻해요'],
-    [15, 20, 'here', '여기보다 5° 쌀쌀해요'],
-  ] as const)('compareSentence(%s, %s, %s)', (v, r, a, expected) => {
-    expect(compareSentence('ko', v, r, a)).toBe(expected);
+    [20, 19.4, '어제와 비슷해요'],
+    [21, 20, '어제와 비슷해요'],
+    [23, 20, '어제보다 3° 따뜻해요'],
+    [15, 20, '어제보다 5° 쌀쌀해요'],
+  ] as const)('compareSentence(%s, %s)', (v, r, expected) => {
+    expect(compareSentence('ko', v, r)).toBe(expected);
   });
 
   it('returns null when a value is missing', () => {
-    expect(compareSentence('ko', null, 20, 'yesterday')).toBeNull();
-    expect(compareSentence('ko', 20, null, 'here')).toBeNull();
+    expect(compareSentence('ko', null, 20)).toBeNull();
+    expect(compareSentence('ko', 20, null)).toBeNull();
   });
 });

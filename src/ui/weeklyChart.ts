@@ -13,14 +13,21 @@ export interface WeeklyColumn {
   muted: boolean;
 }
 
-/** PRD F6 + F7-2: [Y'day | Here], Today, then 4 weekdays. */
-export function weeklyColumns(lang: Lang, days: DayPoint[], here?: DayPoint): WeeklyColumn[] {
+/**
+ * PRD F6 + F7-2: [Y'day | reference place], Today, then 4 weekdays.
+ * For another city the first column is the user's own place, labelled so it can't be read as that city.
+ */
+export function weeklyColumns(
+  lang: Lang,
+  days: DayPoint[],
+  reference?: { day: DayPoint; label: string },
+): WeeklyColumn[] {
   const weekday = new Intl.DateTimeFormat(lang, { weekday: 'short', timeZone: 'UTC' });
   const col = (d: DayPoint, label: string, muted = false): WeeklyColumn => ({
     label, max: d.max, min: d.min, code: d.code, muted,
   });
   return [
-    here ? col(here, t(lang, 'label.here'), true) : col(days[0], t(lang, 'label.yday'), true),
+    reference ? col(reference.day, reference.label, true) : col(days[0], t(lang, 'label.yday'), true),
     col(days[1], t(lang, 'label.todayCol')),
     ...days.slice(2, 6).map((d) => col(d, weekday.format(new Date(`${d.date}T00:00:00Z`)))),
   ];

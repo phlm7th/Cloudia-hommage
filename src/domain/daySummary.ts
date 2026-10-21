@@ -43,14 +43,10 @@ export function extremes(hours: HourPoint[]): { max: Extreme; min: Extreme } | n
   return max && min ? { max, min } : null;
 }
 
-export function compareSentence(
-  lang: Lang,
-  value: number | null,
-  reference: number | null,
-  against: 'yesterday' | 'here',
-): string | null {
-  if (value === null || reference === null) return null;
-  const d = Math.round(value - reference);
-  if (Math.abs(d) <= 1) return t(lang, `cmp.same.${against}`);
-  return t(lang, d > 0 ? `cmp.warmer.${against}` : `cmp.cooler.${against}`, { d: Math.abs(d) });
+/** Always against yesterday — the app's core comparison (PRD 2.3, P2), whichever city is shown. */
+export function compareSentence(lang: Lang, value: number | null, yesterday: number | null): string | null {
+  if (value === null || yesterday === null) return null;
+  const d = Math.round(value - yesterday);
+  if (Math.abs(d) <= 1) return t(lang, 'cmp.same');
+  return t(lang, d > 0 ? 'cmp.warmer' : 'cmp.cooler', { d: Math.abs(d) });
 }

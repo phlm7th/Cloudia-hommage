@@ -63,7 +63,7 @@ describe('startApp', () => {
 });
 
 describe('places', () => {
-  it('opens the place list and compares another city with here', async () => {
+  it('opens the place list; another city still compares with yesterday', async () => {
     localStorage.setItem('cloudia.places.v1', JSON.stringify([{ id: 'geo-1', name: '도쿄', lat: 35.69, lon: 139.69 }]));
     const f = fakeFetch();
     await startApp(root, { fetch: f, geolocation: deniedGeo, lang: 'ko', now: () => FIXED_NOW });
@@ -73,8 +73,22 @@ describe('places', () => {
     root.querySelectorAll<HTMLButtonElement>('.saved .pick')[1].click();
     await vi.waitFor(() => expect(root.querySelector('button.place-name')!.textContent).toBe('도쿄'));
     expect(f).toHaveBeenCalledWith(expect.stringContaining('latitude=35.69'), expect.anything());
-    expect(root.querySelector('.weekly-chart .day')!.textContent).toBe('여기');
-    expect(root.querySelector('p.compare')!.textContent).toBe('여기와 비슷해요');
+    // location denied → "here" is the Seoul fallback, so the column shows its real name
+    expect(root.querySelector('.weekly-chart .day')!.textContent).toBe('서울');
+    expect(root.querySelector('p.compare')!.textContent).toMatch(/^어제/);
+  });
+
+  it('labels the reference column 내 위치 when the position is known', async () => {
+    localStorage.setItem('cloudia.places.v1', JSON.stringify([{ id: 'geo-1', name: '도쿄', lat: 35.69, lon: 139.69 }]));
+    const grantedGeo = {
+      getCurrentPosition: (ok: PositionCallback) => ok({ coords: { latitude: 35.1796, longitude: 129.0756 } } as GeolocationPosition),
+    } as unknown as Geolocation;
+    await startApp(root, { fetch: fakeFetch(), geolocation: grantedGeo, lang: 'ko', now: () => FIXED_NOW });
+    root.querySelector<HTMLButtonElement>('button.place-name')!.click();
+    root.querySelectorAll<HTMLButtonElement>('.saved .pick')[1].click();
+    await vi.waitFor(() => expect(root.querySelector('button.place-name')!.textContent).toBe('도쿄'));
+    expect(root.querySelector('.weekly-chart .day')!.textContent).toBe('내 위치');
+    expect(root.querySelector('p.compare')!.textContent).toMatch(/^어제/);
   });
 });
 
