@@ -1,0 +1,23 @@
+{
+  "name": "cloudia",
+  "version": "1.0.0",
+  "description": "Cloudia — live infographic weather (web/PWA)",
+  "scripts": {
+    "dev": "vite",
+    "icons": "pwa-assets-generator --preset minimal-2023 public/icon.svg",
+    "build": "npm run icons && tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@vite-pwa/assets-generator": "^2.0.0",
+    "jsdom": "^30.1.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.0.5"
+  }
+}
